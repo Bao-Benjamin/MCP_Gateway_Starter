@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: todo-sample-app
+  autoconfigure:
+    # Ứng dụng tự xác thực bằng API key, không cần user/password mặc định của Spring Boot
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  ai:
+    mcp:
+      server:
+        name: todo-mcp-gateway
+        version: 0.1.0
+        # MCP Gateway cần chế độ STATELESS: mỗi request MCP là một HTTP request có kèm API key
+        protocol: STATELESS
+
+mcp:
+  gateway:
+    include-paths:
+      - /api/**
+    include-methods:
+      - GET
+      - POST
+
+# API key dùng cho demo. Không dùng cách này cho hệ thống thật.
+demo:
+  security:
+    keys:
+      alice-key:
+        username: alice
+        roles: [USER]
+      bob-key:
+        username: bob
+        roles: [USER]
+      admin-key:
+        username: admin
+        roles: [USER, ADMIN]
+
+logging:
+  level:
+    com.thesis.mcpgateway: INFO
