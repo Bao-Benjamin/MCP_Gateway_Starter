@@ -10,6 +10,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
+import com.thesis.todo.user.UserAccountService;
+
 /**
  * Quy tắc phân quyền của ứng dụng. MCP Gateway đọc chính các quy tắc này để lọc Tool, nên không
  * phải khai báo quyền lần thứ hai.
@@ -19,17 +21,18 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 public class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyProperties apiKeys) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyProperties apiKeys,
+			UserAccountService userAccountService) throws Exception {
 		http.csrf(csrf -> csrf.disable())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.addFilterBefore(new ApiKeyAuthenticationFilter(apiKeys), AnonymousAuthenticationFilter.class)
+			.addFilterBefore(new ApiKeyAuthenticationFilter(apiKeys, userAccountService), AnonymousAuthenticationFilter.class)
 			.exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
 			.authorizeHttpRequests(auth -> auth
 				// Endpoint MCP mở cho mọi người; quyền được kiểm tra theo từng Tool
 				.requestMatchers("/mcp", "/v3/api-docs/**", "/error").permitAll()
 				.requestMatchers("/api/public/**").permitAll()
 				.requestMatchers("/api/admin/**").hasRole("ADMIN")
-				.requestMatchers("/api/tasks/**").hasRole("USER")
+				.requestMatchers("/api/tasks/**", "/api/me/**").hasRole("USER")
 				.anyRequest().denyAll());
 		return http.build();
 	}

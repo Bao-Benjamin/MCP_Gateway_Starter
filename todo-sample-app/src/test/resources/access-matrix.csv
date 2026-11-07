@@ -1,0 +1,18 @@
+# Ma trận quyền mong đợi: Tool nào vai trò nào được thấy và gọi.
+# Dùng lại cho thí nghiệm E1 của benchmark.
+# tool;GUEST;USER;ADMIN;arguments (JSON hợp lệ với inputSchema)
+getAppInfo;Y;Y;Y;{}
+listMyTasks;N;Y;Y;{}
+createTask;N;Y;Y;{"body":{"title":"matrix test"}}
+getTask;N;Y;Y;{"id":999999}
+updateTask;N;Y;Y;{"id":999999,"body":{"title":"matrix test"}}
+completeTask;N;Y;Y;{"id":999999}
+deleteTask;N;Y;Y;{"id":999999}
+getMyProfile;N;Y;Y;{}
+getMyStatistics;N;Y;Y;{}
+listMyTags;N;Y;Y;{}
+listUsers;N;N;Y;{}
+lockUser;N;N;Y;{"username":"no-such-user"}
+unlockUser;N;N;Y;{"username":"no-such-user"}
+listAllTasks;N;N;Y;{}
+getTaskStatistics;N;N;Y;{}

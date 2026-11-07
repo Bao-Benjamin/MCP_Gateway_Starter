@@ -8,6 +8,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.thesis.mcpgateway.registry.GatewayTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -18,6 +21,8 @@ import io.modelcontextprotocol.spec.McpSchema;
  * {@value #BODY_PROPERTY}.
  */
 public class ToolGenerator {
+
+	private static final Logger logger = LoggerFactory.getLogger(ToolGenerator.class);
 
 	public static final String BODY_PROPERTY = "body";
 
@@ -52,6 +57,9 @@ public class ToolGenerator {
 		while (!usedNames.add(name)) {
 			String suffix = "_" + i++;
 			name = base.substring(0, Math.min(base.length(), MAX_NAME_LENGTH - suffix.length())) + suffix;
+		}
+		if (!name.equals(base)) {
+			logger.warn("Tool name '{}' is already used, renamed to '{}'", base, name);
 		}
 		return name;
 	}

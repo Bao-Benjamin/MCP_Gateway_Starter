@@ -8,6 +8,8 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.thesis.todo.user.UserAccountService;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * <li>Không có header: tiếp tục như khách (anonymous).</li>
  * <li>Key hợp lệ: gắn người dùng và role vào SecurityContext.</li>
  * <li>Key sai: trả 401 ngay.</li>
+ * <li>Tài khoản đã bị ADMIN khóa: trả 403 ngay.</li>
  * </ul>
  */
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
@@ -27,8 +30,11 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
 	private final ApiKeyProperties properties;
 
-	public ApiKeyAuthenticationFilter(ApiKeyProperties properties) {
+	private final UserAccountService userAccountService;
+
+	public ApiKeyAuthenticationFilter(ApiKeyProperties properties, UserAccountService userAccountService) {
 		this.properties = properties;
+		this.userAccountService = userAccountService;
 	}
 
 	@Override
@@ -39,6 +45,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 			ApiKeyProperties.User user = this.properties.keys().get(apiKey);
 			if (user == null) {
 				response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid API key");
+				return;
+			}
+			if (this.userAccountService.isLocked(user.username())) {
+				response.sendError(HttpStatus.FORBIDDEN.value(), "Account is locked");
 				return;
 			}
 			var authorities = AuthorityUtils

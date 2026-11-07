@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.thesis.mcpgateway.openapi.ApiEndpointMetadata;
@@ -72,6 +73,21 @@ public class HttpLoopbackToolInvoker implements ToolInvoker {
 		}
 
 		logger.debug("Calling {} {} for tool '{}'", endpoint.httpMethod(), target, tool.name());
+		try {
+			return send(request);
+		}
+		catch (RestClientException ex) {
+			// Timeout, mất kết nối...: báo lỗi cho client thay vì làm hỏng cả request MCP
+			logger.warn("Calling {} {} for tool '{}' failed: {}", endpoint.httpMethod(), target, tool.name(),
+					ex.getMessage());
+			return McpSchema.CallToolResult.builder()
+				.addTextContent("Could not call REST API: " + ex.getMessage())
+				.isError(true)
+				.build();
+		}
+	}
+
+	private McpSchema.CallToolResult send(RestClient.RequestBodySpec request) {
 		return request.exchange((req, res) -> {
 			int status = res.getStatusCode().value();
 			String text = StreamUtils.copyToString(res.getBody(), StandardCharsets.UTF_8);

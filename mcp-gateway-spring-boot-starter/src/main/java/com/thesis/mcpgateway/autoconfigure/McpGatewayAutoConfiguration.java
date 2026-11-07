@@ -1,5 +1,6 @@
 package com.thesis.mcpgateway.autoconfigure;
 
+import java.net.http.HttpClient;
 import java.util.function.Supplier;
 
 import org.springframework.ai.mcp.server.webmvc.autoconfigure.McpServerStatelessWebMvcAutoConfiguration;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.security.web.access.WebInvocationPrivilegeEvaluator;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import com.thesis.mcpgateway.config.McpGatewayProperties;
@@ -98,20 +100,26 @@ public class McpGatewayAutoConfiguration {
 	@ConditionalOnMissingBean
 	public ToolInvoker mcpGatewayToolInvoker(ObjectProvider<RestClient.Builder> restClientBuilder,
 			Environment environment, McpGatewayProperties properties) {
-		return new HttpLoopbackToolInvoker(restClient(restClientBuilder), baseUrl(environment, properties));
+		return new HttpLoopbackToolInvoker(restClient(restClientBuilder, properties), baseUrl(environment, properties));
 	}
 
 	@Bean
 	public GatewayToolRegistrar mcpGatewayToolRegistrar(McpGatewayProperties properties,
 			ObjectProvider<RestClient.Builder> restClientBuilder, Environment environment, OpenApiEndpointReader reader,
 			ToolGenerator generator, ToolRegistry registry, ToolInvoker invoker, McpStatelessSyncServer mcpServer) {
-		return new GatewayToolRegistrar(properties, restClient(restClientBuilder), baseUrl(environment, properties),
+		return new GatewayToolRegistrar(properties, restClient(restClientBuilder, properties), baseUrl(environment, properties),
 				reader, generator, registry, invoker, mcpServer);
 	}
 
-	/** Dùng RestClient.Builder của ứng dụng nếu có (đã cấu hình sẵn converter), nếu không thì tự tạo. */
-	static RestClient restClient(ObjectProvider<RestClient.Builder> builder) {
-		return builder.getIfAvailable(RestClient::builder).build();
+	/**
+	 * Dùng RestClient.Builder của ứng dụng nếu có (đã cấu hình sẵn converter), nếu không thì tự tạo.
+	 * Luôn đặt timeout để một endpoint chậm không giữ request MCP mãi.
+	 */
+	static RestClient restClient(ObjectProvider<RestClient.Builder> builder, McpGatewayProperties properties) {
+		HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+		requestFactory.setReadTimeout(properties.getReadTimeout());
+		return builder.getIfAvailable(RestClient::builder).requestFactory(requestFactory).build();
 	}
 
 	/** Địa chỉ gốc để gọi lại chính ứng dụng; port chỉ biết được sau khi server đã chạy. */

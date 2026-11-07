@@ -1,5 +1,6 @@
 package com.thesis.mcpgateway.registry;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -11,6 +12,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import com.thesis.mcpgateway.config.McpGatewayProperties;
 import com.thesis.mcpgateway.invocation.ToolInvoker;
@@ -61,20 +63,57 @@ public class GatewayToolRegistrar implements ApplicationListener<ApplicationRead
 		this.mcpServer = mcpServer;
 	}
 
+	/**
+	 * Lỗi ở đây (không đọc được OpenAPI, tài liệu sai định dạng) chỉ được ghi log: ứng dụng vẫn
+	 * chạy bình thường, chỉ là không có Tool nào được công bố.
+	 */
 	@Override
 	public void onApplicationEvent(ApplicationReadyEvent event) {
-		Map<String, Object> openApi = this.restClient.get()
-			.uri(this.baseUrl.get() + this.properties.getOpenapiPath())
-			.retrieve()
-			.body(new ParameterizedTypeReference<Map<String, Object>>() {
-			});
+		Map<String, Object> openApi = loadOpenApi();
 		if (openApi == null) {
-			logger.warn("Could not read OpenAPI document at {}", this.properties.getOpenapiPath());
 			return;
 		}
+		try {
+			registerTools(openApi);
+		}
+		catch (RuntimeException ex) {
+			logger.error("Could not generate MCP tools from OpenAPI document; no tools were published", ex);
+		}
+	}
 
+	private Map<String, Object> loadOpenApi() {
+		String url = this.baseUrl.get() + this.properties.getOpenapiPath();
+		int maxAttempts = Math.max(1, this.properties.getOpenapiMaxAttempts());
+		for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+			try {
+				Map<String, Object> openApi = this.restClient.get()
+					.uri(url)
+					.retrieve()
+					.body(new ParameterizedTypeReference<Map<String, Object>>() {
+					});
+				if (openApi != null) {
+					return openApi;
+				}
+				logger.warn("OpenAPI document at {} is empty (attempt {}/{})", url, attempt, maxAttempts);
+			}
+			catch (RestClientException ex) {
+				logger.warn("Could not read OpenAPI document at {} (attempt {}/{}): {}", url, attempt, maxAttempts,
+						ex.getMessage());
+			}
+			if (attempt < maxAttempts && !sleep(this.properties.getOpenapiRetryDelay())) {
+				break;
+			}
+		}
+		logger.error("Giving up reading OpenAPI document at {}; no MCP tools were published. "
+				+ "Check that springdoc is on the classpath and that {} is not blocked by Spring Security.", url,
+				this.properties.getOpenapiPath());
+		return null;
+	}
+
+	private void registerTools(Map<String, Object> openApi) {
 		List<ApiEndpointMetadata> endpoints = this.reader.read(openApi);
-		for (GatewayTool tool : this.generator.generate(endpoints)) {
+		List<GatewayTool> tools = this.generator.generate(endpoints);
+		for (GatewayTool tool : tools) {
 			this.registry.register(tool);
 			this.mcpServer.addTool(McpStatelessServerFeatures.SyncToolSpecification.builder()
 				.tool(tool.tool())
@@ -82,6 +121,22 @@ public class GatewayToolRegistrar implements ApplicationListener<ApplicationRead
 				.build());
 			logger.info("Registered MCP tool '{}' -> {} {}", tool.name(), tool.endpoint().httpMethod(),
 					tool.endpoint().pathTemplate());
+			if ("DELETE".equals(tool.endpoint().httpMethod())) {
+				logger.warn("MCP tool '{}' can delete data ({} {})", tool.name(), tool.endpoint().httpMethod(),
+						tool.endpoint().pathTemplate());
+			}
+		}
+		logger.info("Published {} MCP tools from OpenAPI document", tools.size());
+	}
+
+	private static boolean sleep(Duration delay) {
+		try {
+			Thread.sleep(delay.toMillis());
+			return true;
+		}
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			return false;
 		}
 	}
 

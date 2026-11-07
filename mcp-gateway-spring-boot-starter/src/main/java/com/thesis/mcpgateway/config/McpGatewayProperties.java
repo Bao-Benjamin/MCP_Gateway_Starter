@@ -1,5 +1,6 @@
 package com.thesis.mcpgateway.config;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +29,10 @@ public class McpGatewayProperties {
 	/** Loại bỏ endpoint có path khớp các mẫu này, kể cả khi đã khớp includePaths. */
 	private List<String> excludePaths = new ArrayList<>();
 
-	/** Chỉ công bố các HTTP method này. Mặc định chỉ GET và POST (phạm vi MVP). */
+	/**
+	 * Chỉ công bố các HTTP method này. Mặc định chỉ GET và POST; PUT, PATCH, DELETE phải bật rõ
+	 * ràng vì chúng thay đổi hoặc xóa dữ liệu.
+	 */
 	private List<String> includeMethods = new ArrayList<>(List.of("GET", "POST"));
 
 	/**
@@ -36,6 +40,18 @@ public class McpGatewayProperties {
 	 * danh tính người gọi.
 	 */
 	private List<String> forwardHeaders = new ArrayList<>(List.of("Authorization", "X-API-Key"));
+
+	/** Thời gian chờ kết nối khi gọi lại REST API. */
+	private Duration connectTimeout = Duration.ofSeconds(5);
+
+	/** Thời gian chờ phản hồi khi gọi lại REST API. Quá thời gian này Tool trả lỗi. */
+	private Duration readTimeout = Duration.ofSeconds(30);
+
+	/** Số lần thử đọc tài liệu OpenAPI lúc khởi động. */
+	private int openapiMaxAttempts = 3;
+
+	/** Thời gian chờ giữa hai lần thử đọc OpenAPI. */
+	private Duration openapiRetryDelay = Duration.ofSeconds(2);
 
 	public boolean isEnabled() {
 		return this.enabled;
@@ -83,6 +99,38 @@ public class McpGatewayProperties {
 
 	public void setIncludeMethods(List<String> includeMethods) {
 		this.includeMethods = includeMethods;
+	}
+
+	public Duration getConnectTimeout() {
+		return this.connectTimeout;
+	}
+
+	public void setConnectTimeout(Duration connectTimeout) {
+		this.connectTimeout = connectTimeout;
+	}
+
+	public Duration getReadTimeout() {
+		return this.readTimeout;
+	}
+
+	public void setReadTimeout(Duration readTimeout) {
+		this.readTimeout = readTimeout;
+	}
+
+	public int getOpenapiMaxAttempts() {
+		return this.openapiMaxAttempts;
+	}
+
+	public void setOpenapiMaxAttempts(int openapiMaxAttempts) {
+		this.openapiMaxAttempts = openapiMaxAttempts;
+	}
+
+	public Duration getOpenapiRetryDelay() {
+		return this.openapiRetryDelay;
+	}
+
+	public void setOpenapiRetryDelay(Duration openapiRetryDelay) {
+		this.openapiRetryDelay = openapiRetryDelay;
 	}
 
 	public List<String> getForwardHeaders() {

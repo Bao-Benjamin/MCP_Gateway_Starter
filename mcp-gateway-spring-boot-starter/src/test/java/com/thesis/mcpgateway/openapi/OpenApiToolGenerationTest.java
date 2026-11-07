@@ -71,6 +71,25 @@ class OpenApiToolGenerationTest {
 	}
 
 	@Test
+	void duplicateToolNamesGetANumberSuffix() {
+		ApiEndpointMetadata first = new ApiEndpointMetadata("GET", "/api/a", "listItems", null, null, List.of(), null,
+				false);
+		ApiEndpointMetadata second = new ApiEndpointMetadata("GET", "/api/b", "listItems", null, null, List.of(), null,
+				false);
+
+		assertThat(new ToolGenerator().generate(List.of(first, second))).extracting(GatewayTool::name)
+			.containsExactly("listItems", "listItems_2");
+	}
+
+	@Test
+	void toolNamesOnlyUseAllowedCharacters() {
+		ApiEndpointMetadata endpoint = new ApiEndpointMetadata("GET", "/api/tasks/{id}/sub-items", null, null, null,
+				List.of(), null, false);
+
+		assertThat(new ToolGenerator().toolName(endpoint)).isEqualTo("get_api_tasks_id_sub-items");
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void pathAndQueryParametersBecomeSchemaProperties() {
 		GatewayTool tool = generate().stream().filter(t -> t.name().equals("getTask")).findFirst().orElseThrow();

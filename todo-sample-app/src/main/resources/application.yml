@@ -4,6 +4,10 @@ spring:
   autoconfigure:
     # Ứng dụng tự xác thực bằng API key, không cần user/password mặc định của Spring Boot
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  web:
+    error:
+      # Trả về lý do lỗi (ví dụ "Task 5 not found") để MCP client và LLM đọc được
+      include-message: always
   ai:
     mcp:
       server:
@@ -16,9 +20,8 @@ mcp:
   gateway:
     include-paths:
       - /api/**
-    include-methods:
-      - GET
-      - POST
+    # App mẫu bật đủ các method để thử; mặc định của Starter chỉ là GET và POST
+    include-methods: [GET, POST, PUT, PATCH, DELETE]
 
 # API key dùng cho demo. Không dùng cách này cho hệ thống thật.
 demo:
